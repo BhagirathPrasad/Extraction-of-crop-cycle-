@@ -1,0 +1,84 @@
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Foundation\Auth\User as Authenticatable;
+use Illuminate\Notifications\Notifiable;
+use Laravel\Sanctum\HasApiTokens;
+use Spatie\Permission\Traits\HasRoles;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+
+class User extends Authenticatable
+{
+    use HasApiTokens, HasFactory, Notifiable, HasRoles;
+
+    protected $fillable = [
+        'name', 'email', 'password', 'role', 'locale', 'theme', 'avatar',
+        'phone', 'organization', 'region', 'two_factor_enabled',
+        'two_factor_secret', 'last_login_at', 'last_login_ip', 'is_active',
+    ];
+
+    protected $hidden = [
+        'password', 'remember_token', 'two_factor_secret',
+    ];
+
+    protected function casts(): array
+    {
+        return [
+            'email_verified_at'    => 'datetime',
+            'last_login_at'        => 'datetime',
+            'password'             => 'hashed',
+            'two_factor_enabled'   => 'boolean',
+            'is_active'            => 'boolean',
+        ];
+    }
+
+    // ─── Relationships ───────────────────────────────────────────────────────
+
+    public function datasets(): HasMany
+    {
+        return $this->hasMany(Dataset::class);
+    }
+
+    public function cropCycles(): HasMany
+    {
+        return $this->hasMany(CropCycle::class);
+    }
+
+    public function reports(): HasMany
+    {
+        return $this->hasMany(Report::class);
+    }
+
+    public function activityLogs(): HasMany
+    {
+        return $this->hasMany(ActivityLog::class);
+    }
+
+    // ─── Helpers ─────────────────────────────────────────────────────────────
+
+    public function isAdmin(): bool
+    {
+        return $this->role === 'admin';
+    }
+
+    public function isResearcher(): bool
+    {
+        return $this->role === 'researcher';
+    }
+
+    public function isFarmer(): bool
+    {
+        return $this->role === 'farmer';
+    }
+
+    public function getAvatarUrlAttribute(): string
+    {
+        if ($this->avatar) {
+            return asset('storage/' . $this->avatar);
+        }
+        $name = urlencode($this->name);
+        return "https://ui-avatars.com/api/?name={$name}&background=16a34a&color=fff&size=128";
+    }
+}
