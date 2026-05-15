@@ -27,8 +27,8 @@
                 <div class="upload-zone" id="uploadZone" onclick="document.getElementById('fileInput').click()">
                     <div class="upload-zone-icon"><i class="bi bi-cloud-upload-fill"></i></div>
                     <p id="uploadText">Drag & drop your file here, or click to browse</p>
-                    <small>Supported: CSV, GeoTIFF (.tif/.tiff), JSON · Max: 100 MB</small>
-                    <input type="file" id="fileInput" name="file" accept=".csv,.tif,.tiff,.json,.txt"
+                    <small>Supported: CSV, GeoTIFF (.tif/.tiff), JSON, PDF, Image · Max: 100 MB</small>
+                    <input type="file" id="fileInput" name="file" accept=".csv,.tif,.tiff,.json,.txt,.pdf,.jpg,.jpeg,.png"
                            style="display:none;" required>
                 </div>
                 @error('file') <div class="form-error">{{ $message }}</div> @enderror
@@ -51,6 +51,8 @@
                         <option value="CSV"     {{ old('type') === 'CSV' ? 'selected' : '' }}>CSV</option>
                         <option value="GeoTIFF" {{ old('type') === 'GeoTIFF' ? 'selected' : '' }}>GeoTIFF</option>
                         <option value="JSON"    {{ old('type') === 'JSON' ? 'selected' : '' }}>JSON</option>
+                        <option value="PDF"     {{ old('type') === 'PDF' ? 'selected' : '' }}>PDF</option>
+                        <option value="Image"   {{ old('type') === 'Image' ? 'selected' : '' }}>Image</option>
                     </select>
                 </div>
 

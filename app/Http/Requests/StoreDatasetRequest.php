@@ -13,8 +13,8 @@ class StoreDatasetRequest extends FormRequest
         return [
             'name'            => 'required|string|max:255',
             'description'     => 'nullable|string|max:1000',
-            'type'            => 'required|in:CSV,GeoTIFF,JSON',
-            'file'            => 'required|file|mimes:csv,txt,tif,tiff,json,geotiff|max:102400',
+            'type'            => 'required|in:CSV,GeoTIFF,JSON,PDF,Image',
+            'file'            => 'required|file|extensions:csv,txt,tif,tiff,json,geotiff,pdf,jpg,jpeg,png|max:102400',
             'crop_type'       => 'nullable|string|max:100',
             'region'          => 'nullable|string|max:100',
             'country'         => 'nullable|string|max:100',
@@ -29,7 +29,7 @@ class StoreDatasetRequest extends FormRequest
     {
         return [
             'file.max'       => 'File cannot be larger than 100 MB.',
-            'file.mimes'     => 'Only CSV, GeoTIFF, and JSON files are supported.',
+            'file.extensions' => 'Only CSV, GeoTIFF, JSON, PDF, and Image files are supported.',
             'data_end_date.after_or_equal' => 'End date must be after or equal to start date.',
         ];
     }

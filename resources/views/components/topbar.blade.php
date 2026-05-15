@@ -132,6 +132,16 @@
                 <div class="dropdown-divider"></div>
                 <a class="dropdown-item" href="{{ route('settings.profile') }}"><i class="bi bi-person"></i><span>Profile</span></a>
                 <a class="dropdown-item" href="{{ route('settings.security') }}"><i class="bi bi-shield-lock"></i><span>Security</span></a>
+                <form action="{{ route('settings.theme.toggle') }}" method="POST">
+                    @csrf
+                    <button type="submit" class="dropdown-item w-100">
+                        @if(auth()->user()->theme === 'dark')
+                            <i class="bi bi-sun"></i><span>Light Mode</span>
+                        @else
+                            <i class="bi bi-moon"></i><span>Dark Mode</span>
+                        @endif
+                    </button>
+                </form>
                 <div class="dropdown-divider"></div>
                 <form action="{{ route('logout') }}" method="POST">
                     @csrf

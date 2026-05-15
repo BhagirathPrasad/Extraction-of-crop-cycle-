@@ -121,7 +121,19 @@
     </nav>
 
     <div class="sidebar-footer">
-        <form action="{{ route('logout') }}" method="POST">
+        <form action="{{ route('settings.theme.toggle') }}" method="POST" class="sidebar-footer-form mb-2">
+            @csrf
+            <button type="submit" class="theme-toggle-btn">
+                @if(auth()->user()->theme === 'dark')
+                    <i class="bi bi-sun-fill text-warning"></i>
+                    <span>Light Mode</span>
+                @else
+                    <i class="bi bi-moon-stars-fill text-info"></i>
+                    <span>Dark Mode</span>
+                @endif
+            </button>
+        </form>
+        <form action="{{ route('logout') }}" method="POST" class="sidebar-footer-form">
             @csrf
             <button type="submit" class="logout-btn">
                 <i class="bi bi-box-arrow-right"></i>
