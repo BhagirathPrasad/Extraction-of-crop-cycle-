@@ -3,13 +3,13 @@
 namespace Tests\Feature\Auth;
 
 use App\Models\User;
-use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Foundation\Testing\DatabaseMigrations;
 use Illuminate\Support\Facades\Hash;
 use Tests\TestCase;
 
 class PasswordUpdateTest extends TestCase
 {
-    use RefreshDatabase;
+    use DatabaseMigrations;
 
     public function test_password_can_be_updated(): void
     {
@@ -17,7 +17,7 @@ class PasswordUpdateTest extends TestCase
 
         $response = $this
             ->actingAs($user)
-            ->from('/profile')
+            ->from('/settings/profile')
             ->put('/password', [
                 'current_password' => 'password',
                 'password' => 'new-password',
@@ -26,7 +26,7 @@ class PasswordUpdateTest extends TestCase
 
         $response
             ->assertSessionHasNoErrors()
-            ->assertRedirect('/profile');
+            ->assertRedirect('/settings/profile');
 
         $this->assertTrue(Hash::check('new-password', $user->refresh()->password));
     }
@@ -37,7 +37,7 @@ class PasswordUpdateTest extends TestCase
 
         $response = $this
             ->actingAs($user)
-            ->from('/profile')
+            ->from('/settings/profile')
             ->put('/password', [
                 'current_password' => 'wrong-password',
                 'password' => 'new-password',
@@ -46,6 +46,6 @@ class PasswordUpdateTest extends TestCase
 
         $response
             ->assertSessionHasErrorsIn('updatePassword', 'current_password')
-            ->assertRedirect('/profile');
+            ->assertRedirect('/settings/profile');
     }
 }

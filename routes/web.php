@@ -9,6 +9,7 @@ use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\SettingsController;
 use App\Http\Controllers\UserController;
+use App\Http\Controllers\ChatbotController;
 use Illuminate\Support\Facades\Route;
 
 // ─── Guest: Landing page ──────────────────────────────────────────────────────
@@ -22,6 +23,9 @@ Route::middleware(['auth'])->group(function () {
 
     // Dashboard
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
+
+    // Chatbot Assistant
+    Route::post('/chatbot/message', [ChatbotController::class, 'sendMessage'])->name('chatbot.message');
 
     // Datasets
     Route::delete('datasets/clear-all', [DatasetController::class, 'clearAll'])->name('datasets.clear-all');

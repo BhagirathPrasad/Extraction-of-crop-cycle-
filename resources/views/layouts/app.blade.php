@@ -181,6 +181,10 @@
         }
     </script>
 
+    @auth
+        @include('components.chatbot')
+    @endauth
+
     @stack('scripts')
 </body>
 </html>

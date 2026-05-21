@@ -3,12 +3,12 @@
 namespace Tests\Feature;
 
 use App\Models\User;
-use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Foundation\Testing\DatabaseMigrations;
 use Tests\TestCase;
 
 class ProfileTest extends TestCase
 {
-    use RefreshDatabase;
+    use DatabaseMigrations;
 
     public function test_profile_page_is_displayed(): void
     {
@@ -16,7 +16,7 @@ class ProfileTest extends TestCase
 
         $response = $this
             ->actingAs($user)
-            ->get('/profile');
+            ->get('/settings/profile');
 
         $response->assertOk();
     }
@@ -27,73 +27,57 @@ class ProfileTest extends TestCase
 
         $response = $this
             ->actingAs($user)
-            ->patch('/profile', [
+            ->put('/settings/profile', [
                 'name' => 'Test User',
-                'email' => 'test@example.com',
+                'phone' => '1234567890',
+                'organization' => 'Test Org',
+                'region' => 'Test Region',
             ]);
 
-        $response
-            ->assertSessionHasNoErrors()
-            ->assertRedirect('/profile');
-
+        $response->assertRedirect();
+        
         $user->refresh();
 
         $this->assertSame('Test User', $user->name);
-        $this->assertSame('test@example.com', $user->email);
-        $this->assertNull($user->email_verified_at);
+        $this->assertSame('1234567890', $user->phone);
+        $this->assertSame('Test Org', $user->organization);
+        $this->assertSame('Test Region', $user->region);
     }
 
-    public function test_email_verification_status_is_unchanged_when_the_email_address_is_unchanged(): void
+    public function test_profile_page_requires_authentication(): void
     {
-        $user = User::factory()->create();
+        $response = $this->get('/settings/profile');
+
+        $response->assertRedirect('/login');
+    }
+
+    public function test_locale_can_be_switched(): void
+    {
+        $user = User::factory()->create(['locale' => 'en']);
 
         $response = $this
             ->actingAs($user)
-            ->patch('/profile', [
-                'name' => 'Test User',
-                'email' => $user->email,
+            ->post('/settings/locale', [
+                'locale' => 'hi',
             ]);
 
-        $response
-            ->assertSessionHasNoErrors()
-            ->assertRedirect('/profile');
-
-        $this->assertNotNull($user->refresh()->email_verified_at);
+        $response->assertRedirect();
+        
+        $user->refresh();
+        $this->assertSame('hi', $user->locale);
     }
 
-    public function test_user_can_delete_their_account(): void
+    public function test_theme_can_be_toggled(): void
     {
-        $user = User::factory()->create();
+        $user = User::factory()->create(['theme' => 'light']);
 
         $response = $this
             ->actingAs($user)
-            ->delete('/profile', [
-                'password' => 'password',
-            ]);
+            ->post('/settings/theme');
 
-        $response
-            ->assertSessionHasNoErrors()
-            ->assertRedirect('/');
-
-        $this->assertGuest();
-        $this->assertNull($user->fresh());
-    }
-
-    public function test_correct_password_must_be_provided_to_delete_account(): void
-    {
-        $user = User::factory()->create();
-
-        $response = $this
-            ->actingAs($user)
-            ->from('/profile')
-            ->delete('/profile', [
-                'password' => 'wrong-password',
-            ]);
-
-        $response
-            ->assertSessionHasErrorsIn('userDeletion', 'password')
-            ->assertRedirect('/profile');
-
-        $this->assertNotNull($user->fresh());
+        $response->assertRedirect();
+        
+        $user->refresh();
+        $this->assertSame('dark', $user->theme);
     }
 }

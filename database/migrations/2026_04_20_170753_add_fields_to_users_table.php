@@ -9,18 +9,18 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('users', function (Blueprint $table) {
-            $table->string('role')->default('farmer')->after('email'); // admin, researcher, farmer
-            $table->string('locale')->default('en')->after('role');
-            $table->string('theme')->default('light')->after('locale');
-            $table->string('avatar')->nullable()->after('theme');
-            $table->string('phone')->nullable()->after('avatar');
-            $table->string('organization')->nullable()->after('phone');
-            $table->string('region')->nullable()->after('organization');
-            $table->boolean('two_factor_enabled')->default(false)->after('region');
-            $table->string('two_factor_secret')->nullable()->after('two_factor_enabled');
-            $table->timestamp('last_login_at')->nullable()->after('two_factor_secret');
-            $table->string('last_login_ip')->nullable()->after('last_login_at');
-            $table->boolean('is_active')->default(true)->after('last_login_ip');
+            $table->string('role')->default('farmer'); // admin, researcher, farmer
+            $table->string('locale')->default('en');
+            $table->string('theme')->default('light');
+            $table->string('avatar')->nullable();
+            $table->string('phone')->nullable();
+            $table->string('organization')->nullable();
+            $table->string('region')->nullable();
+            $table->boolean('two_factor_enabled')->default(false);
+            $table->string('two_factor_secret')->nullable();
+            $table->timestamp('last_login_at')->nullable();
+            $table->string('last_login_ip')->nullable();
+            $table->boolean('is_active')->default(true);
         });
     }
 
