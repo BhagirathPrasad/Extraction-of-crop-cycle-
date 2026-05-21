@@ -109,15 +109,20 @@
             {{-- CSV Format Guide --}}
             <div class="card" style="background: var(--bg-hover); margin-bottom: 20px;">
                 <div class="card-body" style="padding: 14px 18px;">
-                    <p style="font-size:12px; color:var(--text-secondary); margin:0;">
-                        <strong><i class="bi bi-info-circle text-info"></i> CSV Format Guide:</strong>
-                        Your CSV should have headers: <code>date, ndvi</code> (required).
-                        Optional: <code>evi, savi, lai, growth_stage, temperature, rainfall, humidity, soil_moisture, satellite_source</code>
-                    </p>
-                    <div style="margin-top:8px; font-family:monospace; font-size:11px; color:var(--text-muted);">
-                        date,ndvi,evi,temperature,rainfall<br>
-                        2024-10-15,0.12,0.10,28,0<br>
-                        2024-10-23,0.18,0.15,26,5
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                        <p style="font-size:12px; color:var(--text-secondary); margin:0;">
+                            <strong><i class="bi bi-info-circle text-info"></i> CSV Format Guide:</strong>
+                            Your CSV should have headers: <code>date, ndvi</code> (required).
+                            Optional: <code>evi, savi, lai, growth_stage, temperature, rainfall, humidity, soil_moisture, satellite_source</code>
+                        </p>
+                        <a href="{{ asset('sample_dataset.csv') }}" download class="btn-outline" style="font-size: 11px; padding: 4px 8px; flex-shrink: 0; margin-left: 12px; text-decoration: none;">
+                            <i class="bi bi-download"></i> Download Sample CSV
+                        </a>
+                    </div>
+                    <div style="margin-top:8px; font-family:monospace; font-size:11px; color:var(--text-muted); padding: 8px; background: rgba(0,0,0,0.2); border-radius: 4px; overflow-x: auto; white-space: nowrap;">
+                        date,ndvi,evi,savi,lai,growth_stage,temperature,rainfall,humidity,soil_moisture,satellite_source<br>
+                        2024-06-15,0.12,0.10,0.11,0.5,pre_sowing,32,0,45,30,Sentinel-2<br>
+                        2024-06-25,0.18,0.15,0.16,0.8,germination,31,12,60,45,Sentinel-2
                     </div>
                 </div>
             </div>
@@ -181,10 +186,16 @@ function updatePreview() {
 }
 
 // Upload progress simulation
-document.getElementById('uploadForm').addEventListener('submit', function() {
+document.getElementById('uploadForm').addEventListener('submit', function(e) {
     document.getElementById('uploadProgress').style.display = 'block';
-    document.getElementById('submitBtn').disabled = true;
-    document.getElementById('submitBtn').innerHTML = '<i class="bi bi-hourglass-split"></i> Uploading...';
+    
+    // Defer disabling the button so the form can submit
+    setTimeout(() => {
+        const btn = document.getElementById('submitBtn');
+        btn.disabled = true;
+        btn.innerHTML = '<i class="bi bi-hourglass-split"></i> Uploading...';
+    }, 10);
+
     let w = 0;
     const iv = setInterval(() => {
         w = Math.min(w + Math.random() * 15, 90);

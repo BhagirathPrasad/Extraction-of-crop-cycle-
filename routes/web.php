@@ -24,6 +24,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
 
     // Datasets
+    Route::delete('datasets/clear-all', [DatasetController::class, 'clearAll'])->name('datasets.clear-all');
     Route::resource('datasets', DatasetController::class);
     Route::post('datasets/{dataset}/reprocess', [DatasetController::class, 'reprocess'])
          ->name('datasets.reprocess');

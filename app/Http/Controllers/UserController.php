@@ -27,7 +27,7 @@ class UserController extends Controller
 
         $users = $query->latest()->paginate(20)->withQueryString();
 
-        $roleCounts = User::selectRaw('role, COUNT(*) as count')->groupBy('role')->pluck('count', 'role');
+        $roleCounts = User::get(['role'])->groupBy('role')->map->count();
 
         return view('users.index', compact('users', 'roleCounts'));
     }

@@ -21,25 +21,45 @@ class AnalyticsController extends Controller
 
         // Yield prediction trend by crop type
         $yieldByCrop = $cycleQuery->clone()
-            ->selectRaw('crop_type, AVG(yield_prediction) as avg_yield, COUNT(*) as count')
             ->whereNotNull('yield_prediction')
+            ->get(['crop_type', 'yield_prediction'])
             ->groupBy('crop_type')
-            ->get();
+            ->map(function($group, $cropType) {
+                return (object) [
+                    'crop_type' => $cropType,
+                    'avg_yield' => $group->avg('yield_prediction'),
+                    'count' => $group->count()
+                ];
+            })->values();
 
         // NDVI peak by season
         $ndviBySeaon = $cycleQuery->clone()
-            ->selectRaw('season, AVG(ndvi_max) as avg_peak_ndvi, COUNT(*) as count')
             ->whereNotNull('ndvi_max')
+            ->get(['season', 'ndvi_max'])
             ->groupBy('season')
-            ->get();
+            ->map(function($group, $season) {
+                return (object) [
+                    'season' => $season,
+                    'avg_peak_ndvi' => $group->avg('ndvi_max'),
+                    'count' => $group->count()
+                ];
+            })->values();
 
         // Average growing duration per crop
         $growingDays = $cycleQuery->clone()
-            ->selectRaw("crop_type, AVG(julianday(harvest_date) - julianday(sowing_date)) as avg_days")
             ->whereNotNull('harvest_date')
             ->whereNotNull('sowing_date')
+            ->get(['crop_type', 'harvest_date', 'sowing_date'])
             ->groupBy('crop_type')
-            ->get();
+            ->map(function($group, $cropType) {
+                $avgDays = $group->map(function($cycle) {
+                    return \Carbon\Carbon::parse($cycle->harvest_date)->diffInDays(\Carbon\Carbon::parse($cycle->sowing_date));
+                })->avg();
+                return (object) [
+                    'crop_type' => $cropType,
+                    'avg_days' => $avgDays
+                ];
+            })->values();
 
         // Irrigation events timeline (from suggestions)
         $recentCycles = $cycleQuery->clone()

@@ -42,7 +42,7 @@ class DashboardController extends Controller
             'unread_notifications' => $unreadNotifications,
             'total_ndvi_records' => $isAdmin
                 ? NdviRecord::count()
-                : NdviRecord::whereHas('cropCycle', fn($q) => $q->where('user_id', $user->id))->count(),
+                : NdviRecord::whereIn('crop_cycle_id', (clone $cropCycleQuery)->pluck('_id'))->count(),
         ];
 
         // ── Recent activity ───────────────────────────────────────────────
@@ -75,24 +75,29 @@ class DashboardController extends Controller
 
         // ── Crop type distribution ────────────────────────────────────────
         $cropDistribution = (clone $cropCycleQuery)
-            ->selectRaw('crop_type, COUNT(*) as count')
+            ->get(['crop_type'])
             ->groupBy('crop_type')
-            ->pluck('count', 'crop_type');
+            ->map->count();
 
         // ── Yield trend (monthly) ─────────────────────────────────────────
-        $yieldTrend = (clone $cropCycleQuery)
+        $yieldRecords = (clone $cropCycleQuery)
             ->whereNotNull('yield_prediction')
-            ->selectRaw('strftime("%Y-%m", created_at) as month, AVG(yield_prediction) as avg_yield')
-            ->groupBy('month')
-            ->orderBy('month')
-            ->take(12)
-            ->get();
+            ->get(['created_at', 'yield_prediction']);
+            
+        $yieldTrend = $yieldRecords->groupBy(function($cycle) {
+            return $cycle->created_at->format('Y-m');
+        })->map(function($group, $month) {
+            return (object) [
+                'month' => $month,
+                'avg_yield' => $group->avg('yield_prediction')
+            ];
+        })->sortBy('month')->take(-12)->values();
 
         // ── Processing status breakdown ───────────────────────────────────
         $processingStatus = (clone $datasetQuery)
-            ->selectRaw('status, COUNT(*) as count')
+            ->get(['status'])
             ->groupBy('status')
-            ->pluck('count', 'status');
+            ->map->count();
 
         // ── Combined recent activity table ────────────────────────────────
         $recentActivities = $this->buildRecentActivities(
@@ -115,15 +120,23 @@ class DashboardController extends Controller
         $query = NdviRecord::query();
 
         if (!$isAdmin) {
-            $query->whereHas('cropCycle', fn($q) => $q->where('user_id', $user->id));
+            $cropCycleIds = CropCycle::where('user_id', $user->id)->pluck('_id');
+            $query->whereIn('crop_cycle_id', $cropCycleIds);
         }
 
-        $rows = $query
-            ->selectRaw('strftime("%Y-%m", observation_date) as month, AVG(ndvi_value) as avg_ndvi, COUNT(*) as count')
-            ->where('observation_date', '>=', now()->subMonths(12))
-            ->groupBy('month')
-            ->orderBy('month')
-            ->get();
+        $records = $query
+            ->where('observation_date', '>=', now()->subYears(5)->toDateString())
+            ->get(['observation_date', 'ndvi_value']);
+
+        $rows = $records->groupBy(function($rec) {
+            return substr($rec->observation_date, 0, 7);
+        })->map(function($group, $month) {
+            return (object) [
+                'month' => $month,
+                'avg_ndvi' => $group->avg('ndvi_value'),
+                'count' => $group->count()
+            ];
+        })->sortBy('month')->values();
 
         return [
             'labels' => $rows->pluck('month')->toArray(),
@@ -158,6 +171,7 @@ class DashboardController extends Controller
             'type' => 'Dataset uploaded',
             'icon' => 'database-fill',
             'title' => $dataset->name,
+            'url' => route('datasets.show', $dataset),
             'meta' => trim(($dataset->crop_type ? ucfirst($dataset->crop_type) . ' · ' : '') . ($dataset->region ?? 'Region not set')),
             'status' => ucfirst($dataset->status),
             'status_class' => $dataset->status_badge_class,
@@ -168,6 +182,7 @@ class DashboardController extends Controller
             'type' => 'Crop analysis completed',
             'icon' => 'flower1',
             'title' => ucfirst($cycle->crop_type) . ' cycle',
+            'url' => route('crop-cycles.show', $cycle),
             'meta' => trim(($cycle->region ?? 'Region not set') . ' · ' . ($cycle->season ?? 'Season')),
             'status' => $cycle->yield_prediction ? number_format((float) $cycle->yield_prediction, 0) . ' kg/ha' : 'Detected',
             'status_class' => $cycle->yield_badge_class,
@@ -178,6 +193,7 @@ class DashboardController extends Controller
             'type' => 'Report generated',
             'icon' => 'file-earmark-bar-graph-fill',
             'title' => $report->title,
+            'url' => route('reports.show', $report),
             'meta' => ucfirst($report->type ?? 'Report'),
             'status' => ucfirst($report->status),
             'status_class' => $report->status_badge_class,
@@ -191,6 +207,7 @@ class DashboardController extends Controller
                 'type' => 'System alert',
                 'icon' => ($data['icon'] ?? 'bell') . '-fill',
                 'title' => $data['title'] ?? 'Notification',
+                'url' => $data['action_url'] ?? route('notifications.index'),
                 'meta' => $data['message'] ?? 'Platform update',
                 'status' => $notification->read_at ? 'Read' : 'New',
                 'status_class' => $notification->read_at ? 'badge-secondary' : 'badge-danger',

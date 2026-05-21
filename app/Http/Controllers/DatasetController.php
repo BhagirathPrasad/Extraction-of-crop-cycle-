@@ -12,6 +12,20 @@ use Illuminate\View\View;
 
 class DatasetController extends Controller
 {
+    public function clearAll(): RedirectResponse
+    {
+        $user = auth()->user();
+        if ($user->isAdmin()) {
+            // Delete all datasets (which cascades to crop_cycles, ndvi_records)
+            Dataset::query()->delete();
+        } else {
+            Dataset::where('user_id', $user->id)->delete();
+        }
+        
+        ActivityLog::log('deleted', "All dataset records cleared.", Dataset::class, null);
+
+        return redirect()->back()->with('success', 'All datasets and analysis data have been cleared.');
+    }
 
     public function index(Request $request): View
     {
@@ -42,7 +56,7 @@ class DatasetController extends Controller
     public function store(StoreDatasetRequest $request): RedirectResponse
     {
         $file = $request->file('file');
-        $path = $file->store('datasets/' . date('Y/m'), 'private');
+        $path = $file->store('datasets/' . date('Y/m'), 'local');
 
         $dataset = Dataset::create([
             'user_id'            => auth()->id(),

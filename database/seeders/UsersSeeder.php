@@ -24,7 +24,6 @@ class UsersSeeder extends Seeder
                 'theme'        => 'dark',
             ]
         );
-        $admin->assignRole('admin');
 
         // Researcher users
         $researchers = [
@@ -46,7 +45,6 @@ class UsersSeeder extends Seeder
                     'locale'       => 'en',
                 ]
             );
-            $r->assignRole('researcher');
         }
 
         // Farmer users
@@ -70,7 +68,6 @@ class UsersSeeder extends Seeder
                     'locale'    => 'en',
                 ]
             );
-            $f->assignRole('farmer');
         }
 
         $this->command->info('✅ 9 users seeded (1 admin, 3 researchers, 5 farmers)');

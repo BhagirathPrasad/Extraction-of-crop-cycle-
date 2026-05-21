@@ -8,7 +8,14 @@
         <h2>Satellite Datasets</h2>
         <p>Manage multi-temporal satellite data uploads for crop cycle extraction.</p>
     </div>
-    <div class="page-header-actions">
+    <div class="page-header-actions" style="display: flex; gap: 10px;">
+        <form action="{{ route('datasets.clear-all') }}" method="POST" onsubmit="return confirm('Are you sure you want to clear all datasets?');">
+            @csrf
+            @method('DELETE')
+            <button type="submit" class="btn-outline text-danger" style="border-color: rgba(220, 53, 69, 0.5);">
+                <i class="bi bi-trash"></i> Clear All
+            </button>
+        </form>
         <a href="{{ route('datasets.create') }}" class="btn-primary-green">
             <i class="bi bi-cloud-upload-fill"></i> Upload Dataset
         </a>

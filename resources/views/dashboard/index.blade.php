@@ -129,6 +129,9 @@
                     <a href="{{ route('crop-cycles.index') }}" class="hero-btn secondary">
                         <i class="bi bi-graph-up"></i> View Analytics
                     </a>
+                    <a href="{{ asset('sample_dataset.csv') }}" download class="hero-btn secondary">
+                        <i class="bi bi-download"></i> Sample Dataset
+                    </a>
                 </div>
             </div>
             <div class="hero-stats-grid">
@@ -155,6 +158,13 @@
     <section>
         <div class="section-header">
             <h3>Operational Summary</h3>
+            <form action="{{ route('datasets.clear-all') }}" method="POST" onsubmit="return confirm('Are you sure you want to clear all datasets and analysis data? This cannot be undone.');">
+                @csrf
+                @method('DELETE')
+                <button type="submit" class="btn-outline btn-sm text-danger" style="border-color: rgba(220, 53, 69, 0.5);">
+                    <i class="bi bi-trash"></i> Clear All Data
+                </button>
+            </form>
         </div>
         <div class="grid-cols-4">
             <div class="stat-card stat-card-green">
@@ -270,7 +280,15 @@
                                     <strong>{{ $activity['type'] }}</strong>
                                 </div>
                             </td>
-                            <td>{{ $activity['title'] }}</td>
+                            <td>
+                                @if(isset($activity['url']))
+                                    <a href="{{ $activity['url'] }}" style="color: var(--text-primary); text-decoration: none; font-weight: 500;">
+                                        {{ $activity['title'] }}
+                                    </a>
+                                @else
+                                    {{ $activity['title'] }}
+                                @endif
+                            </td>
                             <td class="text-muted">{{ $activity['meta'] }}</td>
                             <td><span class="badge-pill {{ $activity['status_class'] }}">{{ $activity['status'] }}</span></td>
                             <td class="text-muted small">{{ $activity['timestamp']->diffForHumans() }}</td>
