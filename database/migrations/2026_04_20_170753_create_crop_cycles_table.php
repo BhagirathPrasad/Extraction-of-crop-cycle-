@@ -18,6 +18,7 @@ return new class extends Migration
             $table->string('field_id')->nullable();       // farm field identifier
             $table->integer('season_year');
             $table->enum('season', ['Kharif', 'Rabi', 'Zaid', 'Summer', 'Winter', 'Year-round'])->default('Kharif');
+            $table->string('soil_type')->nullable();
 
             // Extracted Parameters
             $table->date('sowing_date')->nullable();
@@ -48,6 +49,14 @@ return new class extends Migration
             $table->json('fertilizer_suggestions')->nullable();
             $table->text('notes')->nullable();
             $table->enum('status', ['active', 'completed', 'failed'])->default('active');
+            
+            // Database Indexes for Fast Search
+            $table->index('user_id');
+            $table->index('crop_type');
+            $table->index('region');
+            $table->index('season');
+            $table->index('soil_type');
+            
             $table->timestamps();
             $table->softDeletes();
         });

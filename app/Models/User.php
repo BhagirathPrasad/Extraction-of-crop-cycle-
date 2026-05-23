@@ -8,6 +8,7 @@ use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
 use Spatie\Permission\Traits\HasRoles;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use App\Models\Notification;
 
 class User extends Authenticatable
 {
@@ -35,6 +36,16 @@ class User extends Authenticatable
     }
 
     // ─── Relationships ───────────────────────────────────────────────────────
+
+    public function notifications()
+    {
+        return $this->morphMany(Notification::class, 'notifiable')->latest();
+    }
+
+    public function unreadNotifications()
+    {
+        return $this->notifications()->whereNull('read_at');
+    }
 
     public function datasets(): HasMany
     {

@@ -2,72 +2,121 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\RedirectResponse;
+use App\Models\Notification;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\View\View;
 
 class NotificationController extends Controller
 {
-
+    /**
+     * Display a listing of notifications.
+     */
     public function index(): View
     {
-        if (!Schema::hasTable('notifications')) {
-            return view('notifications.index', ['notifications' => collect()]);
-        }
-
         $notifications = auth()->user()
             ->notifications()
             ->latest()
             ->paginate(20);
 
-        auth()->user()->unreadNotifications->markAsRead();
+        // Mark unread ones as read when viewing the full list
+        auth()->user()->unreadNotifications()->update(['read_at' => now()]);
 
         return view('notifications.index', compact('notifications'));
     }
 
-    /** AJAX: unread count for topbar bell */
-    public function unreadCount()
+    /**
+     * AJAX: poll for latest unread count and notifications list.
+     */
+    public function poll(Request $request)
     {
-        if (!Schema::hasTable('notifications')) {
-            return response()->json(['count' => 0]);
+        $user = auth()->user();
+        if (!$user) {
+            return response()->json([
+                'count' => 0,
+                'notifications' => []
+            ], 401);
         }
 
+        $unreadCount = $user->unreadNotifications()->count();
+        $recent = $user->notifications()->latest()->take(5)->get();
+
+        $formatted = $recent->map(function ($notif) {
+            $data = $notif->data;
+            return [
+                'id' => $notif->id,
+                'title' => $data['title'] ?? 'Notification',
+                'message' => $data['message'] ?? 'A new system event has been logged.',
+                'url' => $data['url'] ?? '#',
+                'icon' => $data['icon'] ?? 'bell',
+                'color' => $data['color'] ?? 'info',
+                'read_at' => $notif->read_at ? $notif->read_at->toIso8601String() : null,
+                'created_at' => $notif->created_at->diffForHumans(),
+            ];
+        });
+
+        return response()->json([
+            'count' => $unreadCount,
+            'notifications' => $formatted
+        ]);
+    }
+
+    /**
+     * AJAX: unread count for topbar bell
+     */
+    public function unreadCount()
+    {
         return response()->json([
             'count' => auth()->user()->unreadNotifications()->count(),
         ]);
     }
 
-    /** Mark specific notification as read */
-    public function markRead(string $id): RedirectResponse
+    /**
+     * Mark specific notification as read.
+     */
+    public function markRead(string $id)
     {
-        if (!Schema::hasTable('notifications')) {
-            return back();
+        $notification = auth()->user()->notifications()->find($id);
+
+        if ($notification) {
+            $notification->markAsRead();
         }
 
-        auth()->user()->notifications()->find($id)?->markAsRead();
-        return back();
+        if (request()->ajax() || request()->wantsJson()) {
+            return response()->json(['success' => true]);
+        }
+
+        return back()->with('success', 'Notification marked as read.');
     }
 
-    /** Mark all as read */
-    public function markAllRead(): RedirectResponse
+    /**
+     * Mark all notifications as read.
+     */
+    public function markAllRead()
     {
-        if (!Schema::hasTable('notifications')) {
-            return back()->with('success', 'Notifications are not enabled yet.');
+        auth()->user()->unreadNotifications()->update(['read_at' => now()]);
+
+        if (request()->ajax() || request()->wantsJson()) {
+            return response()->json(['success' => true]);
         }
 
-        auth()->user()->unreadNotifications->markAsRead();
         return back()->with('success', 'All notifications marked as read.');
     }
 
-    /** Delete notification */
-    public function destroy(string $id): RedirectResponse
+    /**
+     * Delete a notification.
+     */
+    public function destroy(string $id)
     {
-        if (!Schema::hasTable('notifications')) {
-            return back();
+        $notification = auth()->user()->notifications()->find($id);
+
+        if ($notification) {
+            $notification->delete();
         }
 
-        auth()->user()->notifications()->find($id)?->delete();
+        if (request()->ajax() || request()->wantsJson()) {
+            return response()->json(['success' => true]);
+        }
+
         return back()->with('success', 'Notification deleted.');
     }
 }

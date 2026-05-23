@@ -28,6 +28,20 @@ class AuthenticatedSessionController extends Controller
 
         $request->session()->regenerate();
 
+        $user = Auth::user();
+        if ($user) {
+            // Notify the user themselves
+            $user->notify(new \App\Notifications\NewUserLoginNotification($user));
+            
+            // Also notify admins if the current user is not an admin
+            if (!$user->isAdmin()) {
+                $admins = \App\Models\User::where('role', 'admin')->get();
+                foreach ($admins as $admin) {
+                    $admin->notify(new \App\Notifications\NewUserLoginNotification($user));
+                }
+            }
+        }
+
         return redirect()->intended(route('dashboard', absolute: false));
     }
 

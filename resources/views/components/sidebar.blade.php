@@ -33,6 +33,12 @@
                 'icon' => 'arrow-repeat',
             ],
             [
+                'label' => 'Search Cycles',
+                'route' => route('search.index'),
+                'active' => request()->routeIs('search.index'),
+                'icon' => 'search',
+            ],
+            [
                 'label' => 'Reports',
                 'route' => route('reports.index'),
                 'active' => request()->routeIs('reports.*'),

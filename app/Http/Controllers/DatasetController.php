@@ -81,6 +81,20 @@ class DatasetController extends Controller
         // Dispatch background processing job
         ProcessDatasetJob::dispatch($dataset);
 
+        $user = auth()->user();
+        if ($user) {
+            // Notify the user themselves
+            $user->notify(new \App\Notifications\NewDatasetUploadedNotification($dataset, $user));
+
+            // Also notify admins if the uploader is not an admin
+            if (!$user->isAdmin()) {
+                $admins = \App\Models\User::where('role', 'admin')->get();
+                foreach ($admins as $admin) {
+                    $admin->notify(new \App\Notifications\NewDatasetUploadedNotification($dataset, $user));
+                }
+            }
+        }
+
         return redirect()->route('datasets.show', $dataset)
             ->with('success', 'Dataset uploaded! Processing started in the background.');
     }

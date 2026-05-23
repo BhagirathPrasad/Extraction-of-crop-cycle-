@@ -10,6 +10,7 @@ use App\Http\Controllers\ReportController;
 use App\Http\Controllers\SettingsController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\ChatbotController;
+use App\Http\Controllers\SearchController;
 use Illuminate\Support\Facades\Route;
 
 // ─── Guest: Landing page ──────────────────────────────────────────────────────
@@ -23,6 +24,10 @@ Route::middleware(['auth'])->group(function () {
 
     // Dashboard
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
+
+    // Search Page & Autocomplete
+    Route::get('/search', [SearchController::class, 'index'])->name('search.index');
+    Route::get('/search/suggestions', [SearchController::class, 'suggestions'])->name('search.suggestions');
 
     // Chatbot Assistant
     Route::post('/chatbot/message', [ChatbotController::class, 'sendMessage'])->name('chatbot.message');
@@ -55,6 +60,8 @@ Route::middleware(['auth'])->group(function () {
     // Notifications
     Route::get('/notifications', [NotificationController::class, 'index'])
          ->name('notifications.index');
+    Route::get('/notifications/poll', [NotificationController::class, 'poll'])
+         ->name('notifications.poll');
     Route::get('/notifications/unread-count', [NotificationController::class, 'unreadCount'])
          ->name('notifications.unread-count');
     Route::post('/notifications/{id}/mark-read', [NotificationController::class, 'markRead'])

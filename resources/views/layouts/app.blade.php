@@ -26,6 +26,9 @@
     @stack('styles')
 </head>
 <body class="app-body">
+    <!-- Toast notifications container -->
+    <div class="toast-container" id="toastContainer"></div>
+
     <div class="page-loader active" id="pageLoader" aria-hidden="true">
         <div class="page-loader-spinner"></div>
         <div class="page-loader-copy">
@@ -103,11 +106,55 @@
             initializeDropdowns();
             initializeSidebarState();
             initializeSearchShortcut();
+        }
 
-            if (typeof fetchUnreadCount === 'function') {
-                fetchUnreadCount();
-                window.setInterval(fetchUnreadCount, 60000);
+        // Global Toast Notification Helper
+        function showToast(title, message, type = 'success', url = '#') {
+            const container = document.getElementById('toastContainer');
+            if (!container) return;
+
+            const toast = document.createElement('div');
+            
+            // Map types: success, warning, error, danger, info
+            let typeClass = 'alert-toast-success';
+            let iconClass = 'bi-check-circle-fill';
+            
+            if (type === 'warning') {
+                typeClass = 'alert-toast-warning';
+                iconClass = 'bi-exclamation-triangle-fill';
+            } else if (type === 'error' || type === 'danger') {
+                typeClass = 'alert-toast-danger';
+                iconClass = 'bi-x-circle-fill';
+            } else if (type === 'info') {
+                typeClass = 'alert-toast-info';
+                iconClass = 'bi-info-circle-fill';
             }
+
+            toast.className = `alert-toast ${typeClass}`;
+            toast.innerHTML = `
+                <div style="display: flex; align-items: flex-start; gap: 10px; width: 100%;">
+                    <i class="bi ${iconClass}" style="font-size: 1.25rem; margin-top: 1px;"></i>
+                    <div style="flex: 1; padding-right: 10px;">
+                        <strong style="display: block; font-size: 0.88rem; font-weight: 700; margin-bottom: 2px;">${title}</strong>
+                        <span style="font-size: 0.8rem; display: block; opacity: 0.95; line-height: 1.35;">${message}</span>
+                        ${url && url !== '#' ? `<a href="${url}" style="font-size: 0.78rem; font-weight: 600; color: inherit; text-decoration: underline; margin-top: 5px; display: inline-block;">View Details →</a>` : ''}
+                    </div>
+                    <button class="alert-toast-close" style="font-size: 1.2rem; line-height: 1; padding: 0 4px; margin-top: -3px; cursor: pointer;">&times;</button>
+                </div>
+            `;
+
+            toast.querySelector('.alert-toast-close').addEventListener('click', () => {
+                toast.style.opacity = '0';
+                setTimeout(() => toast.remove(), 300);
+            });
+
+            container.appendChild(toast);
+
+            // Auto dismiss toast after 5 seconds
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                setTimeout(() => toast.remove(), 300);
+            }, 5000);
         }
 
         function initializeDropdowns() {
