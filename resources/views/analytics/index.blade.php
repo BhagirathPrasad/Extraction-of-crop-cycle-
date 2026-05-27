@@ -176,31 +176,35 @@ new Chart(document.getElementById('yieldByCropChart'), {
     options: {
         responsive: true, maintainAspectRatio: false,
         plugins: { legend: { display: false } },
-        scales: { x: { grid: { color: gridClr }, ticks: { color: textClr } }, y: { grid: { color: gridClr }, ticks: { color: textClr } } }
+        scales: { 
+            x: { grid: { color: gridClr }, ticks: { color: textClr } }, 
+            y: { grid: { color: gridClr }, ticks: { color: textClr }, beginAtZero: true } 
+        }
     }
 });
 
-// NDVI by Season radar/bar
+// NDVI by Season bar chart
 const ndviSeasonLabels = @json($ndviBySeaon->pluck('season'));
 const ndviSeasonData   = @json($ndviBySeaon->pluck('avg_peak_ndvi')->map(fn($v) => round($v, 3)));
 
 new Chart(document.getElementById('ndviSeasonChart'), {
-    type: 'radar',
+    type: 'bar',
     data: {
         labels: ndviSeasonLabels.length ? ndviSeasonLabels : ['Kharif','Rabi','Zaid'],
         datasets: [{
             label: 'Peak NDVI',
             data: ndviSeasonData.length ? ndviSeasonData : [0.72, 0.68, 0.55],
-            backgroundColor: 'rgba(34,197,94,.15)',
-            borderColor: '#22c55e',
-            pointBackgroundColor: '#16a34a',
-            borderWidth: 2,
+            backgroundColor: ['#22c55e', '#3b82f6', '#f59e0b'],
+            borderRadius: 8,
         }]
     },
     options: {
         responsive: true, maintainAspectRatio: false,
-        plugins: { legend: { display: true, labels: { color: textClr } } },
-        scales: { r: { grid: { color: gridClr }, ticks: { color: textClr }, min: 0, max: 1 } }
+        plugins: { legend: { display: false } },
+        scales: { 
+            x: { grid: { color: gridClr }, ticks: { color: textClr } }, 
+            y: { grid: { color: gridClr }, ticks: { color: textClr }, beginAtZero: true, min: 0, max: 1 } 
+        }
     }
 });
 

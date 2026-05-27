@@ -457,5 +457,15 @@
     </div>
 
     @stack('scripts')
+    <script>
+        // When landing on a guest page (e.g. login, register, or after logout),
+        // clear the chatbot history and preference keys in localStorage to prevent data leakage.
+        for (let i = localStorage.length - 1; i >= 0; i--) {
+            const key = localStorage.key(i);
+            if (key && key.startsWith('chatbot-')) {
+                localStorage.removeItem(key);
+            }
+        }
+    </script>
 </body>
 </html>

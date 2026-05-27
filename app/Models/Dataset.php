@@ -31,6 +31,21 @@ class Dataset extends Model
         ];
     }
 
+    protected static function booted(): void
+    {
+        static::deleting(function (Dataset $dataset) {
+            if ($dataset->isForceDeleting()) {
+                foreach ($dataset->cropCycles()->withTrashed()->get() as $cycle) {
+                    $cycle->forceDelete();
+                }
+            } else {
+                foreach ($dataset->cropCycles as $cycle) {
+                    $cycle->delete();
+                }
+            }
+        });
+    }
+
     // ─── Relationships ───────────────────────────────────────────────────────
 
     public function user(): BelongsTo
@@ -50,7 +65,7 @@ class Dataset extends Model
         return $query->where('status', 'processed');
     }
 
-    public function scopeByUser($query, int $userId)
+    public function scopeByUser($query, string $userId)
     {
         return $query->where('user_id', $userId);
     }

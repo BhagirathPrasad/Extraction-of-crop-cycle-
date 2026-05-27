@@ -125,7 +125,7 @@ class DashboardController extends Controller
         }
 
         $records = $query
-            ->where('observation_date', '>=', now()->subYears(5)->toDateString())
+            ->where('observation_date', '>=', now()->subYears(5)->startOfDay())
             ->get(['observation_date', 'ndvi_value']);
 
         $rows = $records->groupBy(function($rec) {

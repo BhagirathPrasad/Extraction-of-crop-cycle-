@@ -36,7 +36,7 @@ class DatasetController extends Controller
         ]);
 
         $file = $request->file('file');
-        $path = $file->store('datasets/' . date('Y/m'), 'private');
+        $path = $file->store('datasets/' . date('Y/m'), 'local');
 
         $dataset = Dataset::create([
             'user_id'           => auth()->id(),

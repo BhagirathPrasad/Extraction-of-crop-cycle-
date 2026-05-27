@@ -719,6 +719,36 @@ function chatbotComponent() {
                     };
                 }
             }
+
+            // Clear chatbot local storage upon logout to prevent data persistence across sessions
+            const clearChatbotHistory = () => {
+                for (let i = localStorage.length - 1; i >= 0; i--) {
+                    const key = localStorage.key(i);
+                    if (key && key.startsWith('chatbot-')) {
+                        localStorage.removeItem(key);
+                    }
+                }
+            };
+
+            // Intercept standard form submissions for logout
+            window.addEventListener('submit', (e) => {
+                if (e.target && e.target.action && e.target.action.includes('logout')) {
+                    clearChatbotHistory();
+                }
+            });
+
+            // Intercept clicks on logout links or buttons
+            window.addEventListener('click', (e) => {
+                const target = e.target.closest('a, button, [role="button"]');
+                if (target) {
+                    const href = target.getAttribute('href') || '';
+                    const action = target.closest('form')?.getAttribute('action') || '';
+                    const text = (target.textContent || '').toLowerCase();
+                    if (href.includes('logout') || action.includes('logout') || text.includes('log out') || text.includes('logout')) {
+                        clearChatbotHistory();
+                    }
+                }
+            });
         },
 
         toggleOpen() {

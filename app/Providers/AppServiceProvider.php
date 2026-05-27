@@ -4,11 +4,13 @@ namespace App\Providers;
 
 use App\Http\Middleware\ActivityLogger;
 use App\Http\Middleware\RoleMiddleware;
+use App\Models\PersonalAccessToken;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
+use Laravel\Sanctum\Sanctum;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -19,6 +21,9 @@ class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        // ── Register custom PersonalAccessToken for MongoDB Sanctum compatibility ──
+        Sanctum::usePersonalAccessTokenModel(PersonalAccessToken::class);
+
         // ── Locale from user preferences ─────────────────────────────────
         $this->app->singleton('locale_setter', function () {
             if (auth()->check() && auth()->user()->locale) {

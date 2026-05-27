@@ -32,7 +32,7 @@ class ActivityLog extends Model
         string $action,
         string $description = '',
         ?string $modelType = null,
-        ?int $modelId = null,
+        ?string $modelId = null,
         array $oldValues = [],
         array $newValues = []
     ): static {

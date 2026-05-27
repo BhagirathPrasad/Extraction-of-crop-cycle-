@@ -57,8 +57,14 @@ class NdviProcessingService
 
         $records = [];
         foreach ($csv->getRecords() as $record) {
-            // Normalize keys to lowercase
-            $row = array_change_key_case($record, CASE_LOWER);
+            // Normalize keys: trim and convert to lowercase, removing BOM or special characters
+            $row = [];
+            foreach ($record as $key => $value) {
+                if ($key !== null) {
+                    $cleanKey = preg_replace('/[^a-z0-9_]/', '', strtolower(trim($key)));
+                    $row[$cleanKey] = $value;
+                }
+            }
 
             $date = $this->parseDate($row['date'] ?? $row['observation_date'] ?? null);
             if (!$date) continue;

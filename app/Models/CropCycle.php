@@ -41,6 +41,13 @@ class CropCycle extends Model
         ];
     }
 
+    protected static function booted(): void
+    {
+        static::deleting(function (CropCycle $cropCycle) {
+            $cropCycle->ndviRecords()->delete();
+        });
+    }
+
     // ─── Relationships ───────────────────────────────────────────────────────
 
     public function dataset(): BelongsTo

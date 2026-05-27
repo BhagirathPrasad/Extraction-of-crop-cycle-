@@ -12,20 +12,21 @@ use Illuminate\View\View;
 
 class DatasetController extends Controller
 {
-    public function clearAll(): RedirectResponse
-    {
-        $user = auth()->user();
-        if ($user->isAdmin()) {
-            // Delete all datasets (which cascades to crop_cycles, ndvi_records)
-            Dataset::query()->delete();
-        } else {
-            Dataset::where('user_id', $user->id)->delete();
-        }
-        
-        ActivityLog::log('deleted', "All dataset records cleared.", Dataset::class, null);
+     public function clearAll(): RedirectResponse
+     {
+         $user = auth()->user();
+         $query = $user->isAdmin()
+             ? Dataset::query()
+             : Dataset::where('user_id', $user->id);
 
-        return redirect()->back()->with('success', 'All datasets and analysis data have been cleared.');
-    }
+         foreach ($query->get() as $dataset) {
+             $dataset->delete();
+         }
+         
+         ActivityLog::log('deleted', "All dataset records cleared.", Dataset::class, null);
+ 
+         return redirect()->back()->with('success', 'All datasets and analysis data have been cleared.');
+     }
 
     public function index(Request $request): View
     {
@@ -103,7 +104,14 @@ class DatasetController extends Controller
     {
         $this->authorizeDataset($dataset);
         $dataset->load(['user', 'cropCycles.ndviRecords']);
-        return view('datasets.show', compact('dataset'));
+        
+        $cropCycle = $dataset->cropCycles->first();
+        
+        $ndviDates  = $cropCycle ? $cropCycle->ndviRecords->pluck('observation_date')->map->toDateString() : collect();
+        $ndviValues = $cropCycle ? $cropCycle->ndviRecords->pluck('ndvi_value') : collect();
+        $eviValues  = $cropCycle ? $cropCycle->ndviRecords->pluck('evi_value') : collect();
+
+        return view('datasets.show', compact('dataset', 'cropCycle', 'ndviDates', 'ndviValues', 'eviValues'));
     }
 
     public function edit(Dataset $dataset): View

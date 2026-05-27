@@ -320,7 +320,7 @@ const commonOptions = {
     plugins: { legend: { display: false } },
     scales: {
         x: { grid: { display: false }, ticks: { color: textColor } },
-        y: { grid: { color: gridColor }, ticks: { color: textColor } }
+        y: { grid: { color: gridColor }, ticks: { color: textColor }, beginAtZero: true }
     }
 };
 

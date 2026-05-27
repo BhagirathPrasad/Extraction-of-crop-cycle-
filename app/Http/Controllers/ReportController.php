@@ -146,7 +146,7 @@ class ReportController extends Controller
                 $filename = 'reports/' . $report->id . '-' . now()->format('YmdHis') . '.xlsx';
                 $filePath = storage_path('app/private/' . $filename);
                 @mkdir(dirname($filePath), 0775, true);
-                Excel::store(new CropCyclesExport($filters), $filename, 'private');
+                Excel::store(new CropCyclesExport($filters), $filename, 'local');
                 $path     = $filename;
                 $fileSize = file_exists($filePath) ? filesize($filePath) : 0;
             }

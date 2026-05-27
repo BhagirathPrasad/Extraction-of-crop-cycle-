@@ -53,7 +53,7 @@ class AnalyticsController extends Controller
             ->groupBy('crop_type')
             ->map(function($group, $cropType) {
                 $avgDays = $group->map(function($cycle) {
-                    return \Carbon\Carbon::parse($cycle->harvest_date)->diffInDays(\Carbon\Carbon::parse($cycle->sowing_date));
+                    return $cycle->growing_days;
                 })->avg();
                 return (object) [
                     'crop_type' => $cropType,
