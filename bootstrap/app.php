@@ -26,7 +26,7 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
 
         // Set locale from user preferences on every request
-        $middleware->web(prepend: [
+        $middleware->web(append: [
             \App\Http\Middleware\SetLocale::class,
         ]);
     })

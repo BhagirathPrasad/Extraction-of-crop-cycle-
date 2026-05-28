@@ -15,7 +15,7 @@ class ChatbotController extends Controller
     {
         $request->validate([
             'message' => 'required|string',
-            'lang'    => 'nullable|string|in:en,hi',
+            'lang'    => 'nullable|string|in:en,hi,pa,gu',
         ]);
 
         $message = $request->input('message');
@@ -51,7 +51,7 @@ Here is the context about the logged-in user:
 
 Behavior Rules:
 - Reply professionally and simply.
-- Support English and Hindi (reply in the requested language: " . ($lang === 'hi' ? 'Hindi' : 'English') . ").
+- Support English, Hindi, Punjabi, and Gujarati. Reply in the requested language: " . match($lang) { 'hi' => 'Hindi', 'pa' => 'Punjabi', 'gu' => 'Gujarati', default => 'English' } . ".
 - Give short and accurate answers.
 - Encourage sustainable farming methods.
 - If data is missing or query is too vague, ask the user for details.
@@ -102,9 +102,10 @@ Use \"command\" only when the user explicitly requests website controls or actio
         $command = null;
         $response = "";
 
-        // Hindi keywords
-        $isHindi = ($lang === 'hi') || 
-                   Str::contains($normalized, ['नमस्ते', 'मौसम', 'फसल', 'उपज', 'कृषि', 'सिंचाई', 'खाद', 'मदद']);
+        // Language detection
+        $isHindi   = ($lang === 'hi') || Str::contains($normalized, ['नमस्ते', 'मौसम', 'फसल', 'उपज', 'कृषि', 'सिंचाई', 'खाद', 'मदद']);
+        $isPunjabi = ($lang === 'pa') || Str::contains($message, ['ਫ਼ਸਲ', 'ਮੌਸਮ', 'ਝਾੜ', 'ਸਿੰਚਾਈ', 'ਖਾਦ', 'ਮਦਦ', 'ਡੈਸ਼ਬੋਰਡ']);
+        $isGujarati= ($lang === 'gu') || Str::contains($message, ['પાક', 'હવામાન', 'ઉત્પાદન', 'સિંચાઈ', 'ખાતર', 'મદદ', 'ડૅશબોર્ડ']);
 
         // Website Navigation Commands
         if (Str::contains($normalized, ['dashboard', 'डैशबोर्ड', 'होम', 'home', 'main page'])) {
@@ -224,22 +225,77 @@ Use \"command\" only when the user explicitly requests website controls or actio
             }
         } 
         else {
-            // Default Greeting / Help
-            $response = $isHindi 
-                ? "नमस्ते! मैं CropsCycle का कृषि एआई सहायक हूँ। मैं आपकी कैसे मदद कर सकता हूँ?\n\n" .
-                  "आप मुझसे पूछ सकते हैं:\n" .
-                  "- *मेरी फसलों का प्रदर्शन कैसा है?*\n" .
-                  "- *NDVI और EVI क्या हैं?*\n" .
-                  "- *रबी सीजन के लिए फसलों के सुझाव दें।*\n" .
-                  "- *सिंचाई और खाद प्रबंधन के बारे में बताएं।*\n\n" .
-                  "आप **डैशबोर्ड खोलें**, **रिपोर्ट्स दिखाएं**, या **मौसम देखें** जैसे कमांड भी दे सकते हैं।"
-                : "Hello! I am your CropsCycle Agriculture AI Assistant. How can I assist you today?\n\n" .
-                  "You can ask me questions like:\n" .
-                  "- *How is my crop performing?*\n" .
-                  "- *What is NDVI and EVI?*\n" .
-                  "- *Recommend crops for the Rabi season.*\n" .
-                  "- *Provide irrigation and fertilizer guidance.*\n\n" .
-                  "Or try action triggers such as: **'open dashboard'**, **'show analytics'**, **'download reports'**, or **'check weather'**.";
+            // Check if it's just a simple greeting
+            $isGreeting = Str::length($normalized) < 10 && Str::contains($normalized, ['hello', 'hi', 'hey', 'नमस्ते', 'ਸਤਿ', 'નમસ્તે']);
+
+            if (!$isGreeting) {
+                // Call the free, unauthenticated Pollinations AI endpoint
+                try {
+                    $systemPrompt = "You are an intelligent Agriculture AI Assistant integrated into a Crop Cycle Analysis platform named CropsCycle.
+Your role is to help users understand crop cycle parameters, satellite data analysis, vegetation indexes, crop monitoring, weather impact, irrigation planning, and yield prediction.
+
+Here is the context about the logged-in user:
+- User Name: {$user->name}
+- User Role: {$user->role}
+- User's recent Crop Cycles: " . json_encode($cropCycles->map->only(['crop_type', 'region', 'season', 'season_year', 'ndvi_max', 'yield_prediction'])) . "
+- User's recent Datasets: " . json_encode($datasets->map->only(['name', 'crop_type', 'region', 'status', 'record_count'])) . "
+- User's recent Reports: " . json_encode($reports->map->only(['title', 'type', 'status'])) . "
+
+Answer concisely in markdown. Always reply in {$lang}.";
+
+                    // Pollinations AI accepts POST requests with a JSON 'messages' array
+                    $aiResponse = Http::timeout(25)->withHeaders(['Content-Type' => 'application/json'])
+                        ->post('https://text.pollinations.ai/', [
+                            'messages' => [
+                                ['role' => 'system', 'content' => $systemPrompt],
+                                ['role' => 'user', 'content' => $message]
+                            ]
+                        ]);
+                    
+                    if ($aiResponse->successful() && !empty($aiResponse->body())) {
+                        $response = $aiResponse->body();
+                    }
+                } catch (\Exception $e) {
+                    // Ignore exception and fall back to default greeting below
+                }
+            }
+
+            if (empty($response)) {
+                // Default Greeting / Help
+                if ($isPunjabi) {
+                    $response = "ਸਤਿ ਸ੍ਰੀ ਅਕਾਲ! ਮੈਂ CropsCycle ਦਾ ਕ੍ਰਿਸ਼ੀ AI ਸਹਾਇਕ ਹਾਂ। ਮੈਂ ਤੁਹਾਡੀ ਕਿਵੇਂ ਮਦਦ ਕਰ ਸਕਦਾ ਹਾਂ?\n\n" .
+                        "ਤੁਸੀਂ ਮੈਨੂੰ ਪੁੱਛ ਸਕਦੇ ਹੋ:\n" .
+                        "- *ਮੇਰੀਆਂ ਫ਼ਸਲਾਂ ਦਾ ਪ੍ਰਦਰਸ਼ਨ ਕਿਵੇਂ ਹੈ?*\n" .
+                        "- *NDVI ਅਤੇ EVI ਕੀ ਹਨ?*\n" .
+                        "- *ਰਬੀ ਸੀਜ਼ਨ ਲਈ ਫ਼ਸਲਾਂ ਸੁਝਾਓ।*\n" .
+                        "- *ਸਿੰਚਾਈ ਅਤੇ ਖਾਦ ਪ੍ਰਬੰਧਨ ਬਾਰੇ ਦੱਸੋ।*\n\n" .
+                        "ਜਾਂ ਕਮਾਂਡ ਦਿਓ: **'ਡੈਸ਼ਬੋਰਡ ਖੋਲੋ'**, **'ਰਿਪੋਰਟਾਂ ਦਿਖਾਓ'**, **'ਮੌਸਮ ਵੇਖੋ'**।";
+                } elseif ($isGujarati) {
+                    $response = "નમસ્તે! હું CropsCycle નો કૃષિ AI સહાયક છું. હું તમારી કેવી રીતે મદદ કરી શકું?\n\n" .
+                        "તમે મને પૂછી શકો:\n" .
+                        "- *મારા પાકનું પ્રદર્શન કેવું છે?*\n" .
+                        "- *NDVI અને EVI શું છે?*\n" .
+                        "- *રવિ સીઝન માટે પાક સૂચવો.*\n" .
+                        "- *સિંચાઈ અને ખાતર વ્યવસ્થાપન વિશે જણાવો.*\n\n" .
+                        "અથવા આ આદેશ આપો: **'ડૅશબોર્ડ ખોલો'**, **'અહેવાલ બતાવો'**, **'હવામાન જુઓ'**।";
+                } elseif ($isHindi) {
+                    $response = "नमस्ते! मैं CropsCycle का कृषि एआई सहायक हूँ। मैं आपकी कैसे मदद कर सकता हूँ?\n\n" .
+                      "आप मुझसे पूछ सकते हैं:\n" .
+                      "- *मेरी फसलों का प्रदर्शन कैसा है?*\n" .
+                      "- *NDVI और EVI क्या हैं?*\n" .
+                      "- *रबी सीजन के लिए फसलों के सुझाव दें।*\n" .
+                      "- *सिंचाई और खाद प्रबंधन के बारे में बताएं।*\n\n" .
+                      "आप **डैशबोर्ड खोलें**, **रिपोर्ट्स दिखाएं**, या **मौसम देखें** जैसे कमांड भी दे सकते हैं।";
+                } else {
+                    $response = "Hello! I am your CropsCycle Agriculture AI Assistant. How can I assist you today?\n\n" .
+                      "You can ask me any agricultural question or use these commands:\n" .
+                      "- *How is my crop performing?*\n" .
+                      "- *What is NDVI and EVI?*\n" .
+                      "- *Recommend crops for the Rabi season.*\n" .
+                      "- *Provide irrigation and fertilizer guidance.*\n\n" .
+                      "Action triggers: **'open dashboard'**, **'show analytics'**, **'download reports'**, or **'check weather'**.";
+                }
+            }
         }
 
         return response()->json([

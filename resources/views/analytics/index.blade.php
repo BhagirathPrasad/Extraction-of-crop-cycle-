@@ -93,12 +93,12 @@
         <div class="card-body">
             @forelse($growingDays as $gd)
             <div style="display:flex; align-items:center; gap:12px; margin-bottom:14px;">
-                <span style="width:100px; font-weight:600; font-size:13px;">{{ ucfirst($gd->crop_type) }}</span>
+                <span style="width:100px; font-weight:600; font-size:13px;">{{ ucfirst($gd['crop_type']) }}</span>
                 <div class="ndvi-bar" style="flex:1; height:12px;">
                     <div class="ndvi-fill ndvi-fill-good"
-                         style="width:{{ min(100, ($gd->avg_days ?? 0) / 2) }}%; height:100%;"></div>
+                         style="width:{{ min(100, ($gd['avg_days'] ?? 0) / 2) }}%; height:100%;"></div>
                 </div>
-                <span style="width:60px; text-align:right; font-weight:600; font-size:13px;">{{ round($gd->avg_days ?? 0) }} d</span>
+                <span style="width:60px; text-align:right; font-weight:600; font-size:13px;">{{ round($gd['avg_days'] ?? 0) }} d</span>
             </div>
             @empty
                 <div class="empty-state" style="padding:30px 0;"><p>No data yet.</p></div>

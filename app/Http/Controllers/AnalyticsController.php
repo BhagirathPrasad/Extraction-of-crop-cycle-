@@ -7,6 +7,7 @@ use App\Models\CropCycle;
 use App\Models\Dataset;
 use App\Models\NdviRecord;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\View\View;
 
 class AnalyticsController extends Controller
@@ -16,50 +17,57 @@ class AnalyticsController extends Controller
     {
         $user    = auth()->user();
         $isAdmin = $user->isAdmin();
+        $userId  = $user->id;
 
         $cycleQuery = $isAdmin ? CropCycle::query() : CropCycle::where('user_id', $user->id);
 
-        // Yield prediction trend by crop type
-        $yieldByCrop = $cycleQuery->clone()
-            ->whereNotNull('yield_prediction')
-            ->get(['crop_type', 'yield_prediction'])
-            ->groupBy('crop_type')
-            ->map(function($group, $cropType) {
-                return (object) [
-                    'crop_type' => $cropType,
-                    'avg_yield' => $group->avg('yield_prediction'),
-                    'count' => $group->count()
-                ];
-            })->values();
+        // Yield prediction trend by crop type (cached 1 hour)
+        $yieldByCrop = Cache::remember('analytics_yield_by_crop_' . $userId, 3600, function () use ($cycleQuery) {
+            return $cycleQuery->clone()
+                ->whereNotNull('yield_prediction')
+                ->get(['crop_type', 'yield_prediction'])
+                ->groupBy('crop_type')
+                ->map(function($group, $cropType) {
+                    return [
+                        'crop_type' => $cropType,
+                        'avg_yield' => $group->avg('yield_prediction'),
+                        'count' => $group->count()
+                    ];
+                })->values()->toArray();
+        });
 
-        // NDVI peak by season
-        $ndviBySeaon = $cycleQuery->clone()
-            ->whereNotNull('ndvi_max')
-            ->get(['season', 'ndvi_max'])
-            ->groupBy('season')
-            ->map(function($group, $season) {
-                return (object) [
-                    'season' => $season,
-                    'avg_peak_ndvi' => $group->avg('ndvi_max'),
-                    'count' => $group->count()
-                ];
-            })->values();
+        // NDVI peak by season (cached 1 hour)
+        $ndviBySeaon = Cache::remember('analytics_ndvi_by_season_' . $userId, 3600, function () use ($cycleQuery) {
+            return $cycleQuery->clone()
+                ->whereNotNull('ndvi_max')
+                ->get(['season', 'ndvi_max'])
+                ->groupBy('season')
+                ->map(function($group, $season) {
+                    return [
+                        'season' => $season,
+                        'avg_peak_ndvi' => $group->avg('ndvi_max'),
+                        'count' => $group->count()
+                    ];
+                })->values()->toArray();
+        });
 
-        // Average growing duration per crop
-        $growingDays = $cycleQuery->clone()
-            ->whereNotNull('harvest_date')
-            ->whereNotNull('sowing_date')
-            ->get(['crop_type', 'harvest_date', 'sowing_date'])
-            ->groupBy('crop_type')
-            ->map(function($group, $cropType) {
-                $avgDays = $group->map(function($cycle) {
-                    return $cycle->growing_days;
-                })->avg();
-                return (object) [
-                    'crop_type' => $cropType,
-                    'avg_days' => $avgDays
-                ];
-            })->values();
+        // Average growing duration per crop (cached 1 hour)
+        $growingDays = Cache::remember('analytics_growing_days_' . $userId, 3600, function () use ($cycleQuery) {
+            return $cycleQuery->clone()
+                ->whereNotNull('harvest_date')
+                ->whereNotNull('sowing_date')
+                ->get(['crop_type', 'harvest_date', 'sowing_date'])
+                ->groupBy('crop_type')
+                ->map(function($group, $cropType) {
+                    $avgDays = $group->map(function($cycle) {
+                        return $cycle->growing_days;
+                    })->avg();
+                    return [
+                        'crop_type' => $cropType,
+                        'avg_days' => $avgDays
+                    ];
+                })->values()->toArray();
+        });
 
         // Irrigation events timeline (from suggestions)
         $recentCycles = $cycleQuery->clone()
@@ -74,6 +82,10 @@ class AnalyticsController extends Controller
             ->whereNotNull('yield_prediction')
             ->whereNotNull('actual_yield')
             ->get(['crop_type', 'yield_prediction', 'actual_yield']);
+
+        $yieldByCrop = collect($yieldByCrop);
+        $ndviBySeaon = collect($ndviBySeaon);
+        $growingDays = collect($growingDays);
 
         return view('analytics.index', compact(
             'yieldByCrop', 'ndviBySeaon', 'growingDays', 'recentCycles', 'accuracyData'

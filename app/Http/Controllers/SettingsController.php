@@ -71,12 +71,39 @@ class SettingsController extends Controller
         return back();
     }
 
-    /** Switch language */
+    /** Switch language — supports en, hi, fr, pa (Punjabi), gu (Gujarati) */
     public function switchLocale(Request $request): RedirectResponse
     {
-        $locale = $request->validate(['locale' => 'required|in:en,hi,fr'])['locale'];
+        $locale = $request->validate(['locale' => 'required|in:en,hi,fr,pa,gu'])['locale'];
         auth()->user()->update(['locale' => $locale]);
         session(['locale' => $locale]);
+        app()->setLocale($locale);
         return back()->with('success', 'Language updated.');
+    }
+
+    /** Alert preferences settings page */
+    public function alertSettings(): View
+    {
+        return view('settings.alerts', ['user' => auth()->user()]);
+    }
+
+    /** Update alert preferences */
+    public function updateAlertSettings(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'ndvi_alert_threshold' => 'required|numeric|min:0.1|max:0.9',
+            'alert_email_enabled'  => 'nullable|boolean',
+            'alert_sms_enabled'    => 'nullable|boolean',
+            'phone_number'         => 'nullable|string|max:20',
+        ]);
+
+        $validated['alert_email_enabled'] = $request->boolean('alert_email_enabled');
+        $validated['alert_sms_enabled']   = $request->boolean('alert_sms_enabled');
+
+        auth()->user()->update($validated);
+
+        ActivityLog::log('alert_settings_updated', 'User updated crop health alert preferences.');
+
+        return back()->with('success', 'Alert preferences saved successfully.');
     }
 }

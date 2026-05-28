@@ -27,6 +27,13 @@
                 'badge_class' => $pendingCount > 0 ? 'sidebar-badge sidebar-badge-warning' : null,
             ],
             [
+                'label' => 'Farm Fields',
+                'route' => route('farm-fields.index'),
+                'active' => request()->routeIs('farm-fields.*'),
+                'icon' => 'map-fill',
+                'badge' => 'New',
+            ],
+            [
                 'label' => 'Crop Cycle Analysis',
                 'route' => route('crop-cycles.index'),
                 'active' => request()->routeIs('crop-cycles.*'),

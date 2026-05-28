@@ -18,6 +18,9 @@ class User extends Authenticatable
         'name', 'email', 'password', 'role', 'locale', 'theme', 'avatar',
         'phone', 'organization', 'region', 'two_factor_enabled',
         'two_factor_secret', 'last_login_at', 'last_login_ip', 'is_active',
+        // F5: Alert preferences
+        'ndvi_alert_threshold', 'alert_email_enabled', 'alert_sms_enabled',
+        // F1: Farm field relationship handled via model
     ];
 
     protected $hidden = [
@@ -32,6 +35,9 @@ class User extends Authenticatable
             'password'             => 'hashed',
             'two_factor_enabled'   => 'boolean',
             'is_active'            => 'boolean',
+            'alert_email_enabled'  => 'boolean',
+            'alert_sms_enabled'    => 'boolean',
+            'ndvi_alert_threshold' => 'decimal:2',
         ];
     }
 
@@ -55,6 +61,11 @@ class User extends Authenticatable
     public function cropCycles(): HasMany
     {
         return $this->hasMany(CropCycle::class);
+    }
+
+    public function farmFields(): HasMany
+    {
+        return $this->hasMany(\App\Models\FarmField::class);
     }
 
     public function reports(): HasMany

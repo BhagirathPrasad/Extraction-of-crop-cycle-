@@ -985,6 +985,7 @@ button, input, select, textarea { font: inherit; }
     font-weight: 600;
 }
 .form-control,
+.form-select,
 .filter-select {
     width: 100%;
     min-height: 48px;
@@ -997,6 +998,7 @@ button, input, select, textarea { font: inherit; }
     transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
 }
 .form-control:focus,
+.form-select:focus,
 .filter-select:focus { border-color: rgba(22, 163, 74, 0.24); box-shadow: 0 0 0 4px rgba(22, 163, 74, 0.08); }
 textarea.form-control { min-height: 110px; resize: vertical; }
 .form-error { margin-top: 0.3rem; color: var(--brand-rose); font-size: 0.82rem; }

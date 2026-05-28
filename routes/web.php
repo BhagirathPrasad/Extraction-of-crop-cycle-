@@ -11,6 +11,10 @@ use App\Http\Controllers\SettingsController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\ChatbotController;
 use App\Http\Controllers\SearchController;
+use App\Http\Controllers\FarmFieldController;
+use App\Http\Controllers\WeatherController;
+use App\Http\Controllers\SeasonalAnalysisController;
+use App\Http\Controllers\Admin\CacheController;
 use Illuminate\Support\Facades\Route;
 
 // ─── Guest: Landing page ──────────────────────────────────────────────────────
@@ -42,6 +46,16 @@ Route::middleware(['auth'])->group(function () {
     Route::resource('crop-cycles', CropCycleController::class);
     Route::get('crop-cycles/{cropCycle}/ndvi-chart', [CropCycleController::class, 'ndviChart'])
          ->name('crop-cycles.ndvi-chart');
+    Route::get('crop-cycles/{cropCycle}/seasonal-analysis', [SeasonalAnalysisController::class, 'show'])
+         ->name('crop-cycles.seasonal-analysis');
+
+    // Farm Fields
+    Route::get('/farm-fields/geojson', [FarmFieldController::class, 'geojson'])->name('farm-fields.geojson');
+    Route::resource('farm-fields', FarmFieldController::class);
+
+    // Weather
+    Route::get('/weather/fetch', [WeatherController::class, 'fetch'])->name('weather.fetch');
+    Route::get('/weather/field/{farmField}', [WeatherController::class, 'fetchForField'])->name('weather.field');
 
     // Reports
     Route::resource('reports', ReportController::class)->except(['edit', 'update']);
@@ -78,6 +92,8 @@ Route::middleware(['auth'])->group(function () {
     Route::put('/settings/password', [SettingsController::class, 'updatePassword'])->name('settings.password.update');
     Route::post('/settings/theme',   [SettingsController::class, 'toggleTheme'])->name('settings.theme.toggle');
     Route::post('/settings/locale',  [SettingsController::class, 'switchLocale'])->name('settings.locale.switch');
+    Route::get('/settings/alerts',   [SettingsController::class, 'alerts'])->name('settings.alerts');
+    Route::post('/settings/alerts',  [SettingsController::class, 'updateAlerts'])->name('settings.alerts.update');
 
     // ─── Admin-only routes ────────────────────────────────────────────────
     Route::middleware('role:admin')->group(function () {
@@ -86,5 +102,10 @@ Route::middleware(['auth'])->group(function () {
              ->name('users.toggle-status');
         Route::get('/activity-logs', [ActivityLogController::class, 'index'])
              ->name('activity-logs.index');
+        
+        // Cache Management
+        Route::get('/admin/cache', [CacheController::class, 'index'])->name('admin.cache.index');
+        Route::post('/admin/cache/clear-group', [CacheController::class, 'clearGroup'])->name('admin.cache.clear-group');
+        Route::post('/admin/cache/clear-all', [CacheController::class, 'clearAll'])->name('admin.cache.clear-all');
     });
 });

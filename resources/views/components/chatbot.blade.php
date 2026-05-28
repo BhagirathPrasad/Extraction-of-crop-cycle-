@@ -671,12 +671,9 @@ function chatbotComponent() {
             const savedLang = localStorage.getItem('chatbot-lang-' + userId);
             if (savedLang) this.lang = savedLang;
 
-            // Load chat history from localStorage
-            const savedHistory = localStorage.getItem('chatbot-history-' + userId);
-            if (savedHistory) {
-                this.messages = JSON.parse(savedHistory);
-                this.unreadCount = 0;
-            }
+            // The user requested to clear chat history on page refresh. 
+            // So we explicitly remove it instead of loading it.
+            localStorage.removeItem('chatbot-history-' + userId);
 
             // Load open state preference
             const savedOpen = localStorage.getItem('chatbot-open-' + userId);
@@ -1021,9 +1018,7 @@ function chatbotComponent() {
         },
 
         saveHistory() {
-            const userId = "{{ auth()->id() }}";
-            const historyToSave = this.messages.filter(msg => !msg.loading);
-            localStorage.setItem('chatbot-history-' + userId, JSON.stringify(historyToSave));
+            // Disabled: The user requested that chat history should be cleared on page refresh.
         },
 
         downloadPdf() {

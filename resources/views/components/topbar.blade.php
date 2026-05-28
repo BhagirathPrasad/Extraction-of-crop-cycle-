@@ -2,9 +2,11 @@
     $user = auth()->user();
     $recentNotifications = $recentNotifications ?? collect();
     $localeOptions = [
-        'en' => ['label' => 'English', 'flag' => '🇬🇧'],
-        'hi' => ['label' => 'हिंदी', 'flag' => '🇮🇳'],
-        'fr' => ['label' => 'Français', 'flag' => '🇫🇷'],
+        'en' => ['label' => 'English',     'flag' => '🇬🇧'],
+        'hi' => ['label' => 'हिंदी',       'flag' => '🇮🇳'],
+        'pa' => ['label' => 'ਪੰਜਾਬੀ',      'flag' => '🇮🇳'],
+        'gu' => ['label' => 'ગુજરાતી',     'flag' => '🇮🇳'],
+        'fr' => ['label' => 'Français',    'flag' => '🇫🇷'],
     ];
 @endphp
 

@@ -17,8 +17,14 @@ class CropCycle extends Model
         'season_year', 'season',
         'sowing_date', 'emergence_date', 'tillering_date', 'jointing_date',
         'heading_date', 'peak_growth_date', 'maturity_date', 'harvest_date',
+        // F3: SOS/EOS/Peak/GDD fields
+        'sos_date', 'eos_date', 'peak_date', 'gdd_total',
+        'smoothed_ndvi',
         'ndvi_max', 'ndvi_min', 'ndvi_mean', 'ndvi_at_sowing', 'ndvi_at_peak', 'ndvi_at_harvest',
-        'yield_prediction', 'yield_unit', 'actual_yield', 'yield_category',
+        // F4: multi-feature ML yield prediction fields
+        'yield_prediction', 'yield_confidence_lower', 'yield_confidence_upper',
+        'yield_unit', 'actual_yield', 'yield_category',
+        'soil_type', 'avg_rainfall', 'avg_temperature',
         'irrigation_suggestions', 'fertilizer_suggestions', 'notes', 'status',
     ];
 
@@ -36,6 +42,13 @@ class CropCycle extends Model
             'ndvi_max'                => 'decimal:4',
             'ndvi_min'                => 'decimal:4',
             'ndvi_mean'               => 'decimal:4',
+            'gdd_total'               => 'decimal:1',
+            'yield_prediction'        => 'decimal:2',
+            'yield_confidence_lower'  => 'decimal:2',
+            'yield_confidence_upper'  => 'decimal:2',
+            'avg_rainfall'            => 'decimal:2',
+            'avg_temperature'         => 'decimal:1',
+            'smoothed_ndvi'           => 'array',
             'irrigation_suggestions'  => 'array',
             'fertilizer_suggestions'  => 'array',
         ];
@@ -63,6 +76,11 @@ class CropCycle extends Model
     public function ndviRecords(): HasMany
     {
         return $this->hasMany(NdviRecord::class)->orderBy('observation_date');
+    }
+
+    public function farmField(): BelongsTo
+    {
+        return $this->belongsTo(FarmField::class, 'field_id');
     }
 
     // ─── Scopes ──────────────────────────────────────────────────────────────
@@ -115,5 +133,23 @@ class CropCycle extends Model
             'low'    => 'badge-danger',
             default  => 'badge-secondary',
         };
+    }
+
+    /** Season length in days (SOS to EOS) */
+    public function getSeasonLengthDaysAttribute(): ?int
+    {
+        if ($this->sos_date && $this->eos_date) {
+            return \Carbon\Carbon::parse($this->sos_date)->diffInDays(\Carbon\Carbon::parse($this->eos_date));
+        }
+        return $this->growing_days;
+    }
+
+    /** Yield confidence width (upper - lower) */
+    public function getYieldConfidenceWidthAttribute(): ?float
+    {
+        if ($this->yield_confidence_lower !== null && $this->yield_confidence_upper !== null) {
+            return round((float)$this->yield_confidence_upper - (float)$this->yield_confidence_lower, 2);
+        }
+        return null;
     }
 }

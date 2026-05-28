@@ -24,6 +24,30 @@ class NdviProcessingService
     const NDVI_MATURITY_THRESHOLD  = 0.50;
     const NDVI_HARVEST_THRESHOLD   = 0.25;
 
+    // SOS/EOS threshold (NDVI crossing point for season boundary detection)
+    const NDVI_SOS_EOS_THRESHOLD   = 0.20;
+
+    // Optimal temperature by crop type for multi-feature yield model
+    const OPTIMAL_TEMP = [
+        'wheat'     => 18,
+        'rice'      => 28,
+        'maize'     => 25,
+        'cotton'    => 30,
+        'sugarcane' => 30,
+        'soybean'   => 24,
+        'default'   => 25,
+    ];
+
+    // Soil type yield factors for multi-feature model
+    const SOIL_FACTORS = [
+        'loamy' => 1.00,
+        'silt'  => 0.95,
+        'black' => 0.92,
+        'clay'  => 0.85,
+        'red'   => 0.80,
+        'sandy' => 0.70,
+    ];
+
     /**
      * Parse a CSV dataset file and extract NDVI records + crop cycle parameters.
      */
@@ -40,8 +64,16 @@ class NdviProcessingService
         // Update dataset record count
         $dataset->update(['record_count' => count($records)]);
 
+        // Apply Savitzky-Golay smoothing to NDVI values before SOS/EOS detection
+        $ndviValues     = array_column($records, 'ndvi');
+        $smoothedValues = $this->savitzkyGolaySmooth($ndviValues);
+        foreach ($records as $i => &$rec) {
+            $rec['ndvi_smoothed'] = $smoothedValues[$i];
+        }
+        unset($rec);
+
         // Create the CropCycle and persist extracted parameters
-        return $this->extractAndStoreCycleParameters($dataset, $records);
+        return $this->extractAndStoreCycleParameters($dataset, $records, $smoothedValues);
     }
 
     /**
@@ -166,7 +198,7 @@ class NdviProcessingService
     /**
      * Extract crop cycle parameters from records and persist to DB.
      */
-    private function extractAndStoreCycleParameters(Dataset $dataset, array $records): CropCycle
+    private function extractAndStoreCycleParameters(Dataset $dataset, array $records, array $smoothedValues = []): CropCycle
     {
         $ndviValues = array_column($records, 'ndvi');
         $dates      = array_column($records, 'date');
@@ -179,17 +211,40 @@ class NdviProcessingService
         $harvestDate    = $this->findLastDateAboveThreshold($records, self::NDVI_HARVEST_THRESHOLD);
         $maturityDate   = $this->findLastDateAboveThreshold($records, self::NDVI_MATURITY_THRESHOLD);
 
+        // SOS / EOS detection using smoothed NDVI
+        $sosDate     = $this->detectSOS($records);
+        $eosDate     = $this->detectEOS($records);
+
         $ndviMax  = count($ndviValues) ? max($ndviValues) : null;
         $ndviMin  = count($ndviValues) ? min($ndviValues) : null;
         $ndviMean = count($ndviValues) ? round(array_sum($ndviValues) / count($ndviValues), 4) : null;
 
-        // Yield prediction based on NDVI peak (empirical model)
-        $yieldPrediction = $this->predictYield($ndviMax, $dataset->crop_type);
+        // Multi-feature yield prediction (NDVI + weather + soil)
+        $avgRainfall = count($records) ? round(array_sum(array_column($records, 'rainfall')) / count($records), 2) : null;
+        $avgTemp     = count($records) ? round(array_sum(array_column($records, 'temperature')) / count($records), 1) : null;
+        $soilType    = $dataset->soil_type ?? null;
+
+        $yieldPrediction = $this->predictYield($ndviMax, $dataset->crop_type, $avgRainfall, $avgTemp, $soilType);
+        $confidence      = $this->calculateConfidenceInterval($yieldPrediction, count($records));
         $yieldCategory   = match (true) {
             $yieldPrediction >= 4000  => 'high',
             $yieldPrediction >= 2000  => 'medium',
             default                   => 'low',
         };
+
+        // GDD calculation
+        $gddTotal = $this->calculateGDD($records);
+
+        // Smoothed NDVI for chart storage
+        $smoothedNdviData = [];
+        if (!empty($smoothedValues)) {
+            foreach ($records as $i => $rec) {
+                $smoothedNdviData[] = [
+                    'date' => is_string($rec['date']) ? $rec['date'] : $rec['date']->toDateString(),
+                    'ndvi' => $smoothedValues[$i] ?? $rec['ndvi'],
+                ];
+            }
+        }
 
         // Irrigation suggestions
         $irrigationSuggestions = $this->generateIrrigationSuggestions($records, $sowingDate);
@@ -206,6 +261,11 @@ class NdviProcessingService
             'peak_growth_date'       => $peakDate,
             'maturity_date'          => $maturityDate,
             'harvest_date'           => $harvestDate,
+            'sos_date'               => $sosDate,
+            'eos_date'               => $eosDate,
+            'peak_date'              => $peakDate,
+            'gdd_total'              => $gddTotal,
+            'smoothed_ndvi'          => $smoothedNdviData ?: null,
             'ndvi_max'               => $ndviMax,
             'ndvi_min'               => $ndviMin,
             'ndvi_mean'              => $ndviMean,
@@ -243,6 +303,82 @@ class NdviProcessingService
 
     // ─── Helper methods ──────────────────────────────────────────────────────
 
+    /**
+     * Savitzky-Golay smoothing filter (window=5, polynomial=2).
+     * Reduces noise in NDVI time-series while preserving peak shape.
+     */
+    public function savitzkyGolaySmooth(array $values, int $window = 5): array
+    {
+        $n       = count($values);
+        $half    = (int) floor($window / 2);
+        $smoothed = $values;
+
+        // SG coefficients for window=5, order=2: [-3, 12, 17, 12, -3] / 35
+        $coeffs5 = [-3, 12, 17, 12, -3];
+        $norm5   = 35;
+
+        for ($i = 0; $i < $n; $i++) {
+            if ($i < $half || $i >= $n - $half) {
+                // Boundary: keep original
+                $smoothed[$i] = $values[$i];
+                continue;
+            }
+            $sum = 0;
+            for ($j = 0; $j < $window; $j++) {
+                $sum += $coeffs5[$j] * $values[$i - $half + $j];
+            }
+            $smoothed[$i] = $this->clampNdvi(round($sum / $norm5, 4));
+        }
+        return $smoothed;
+    }
+
+    /**
+     * Detect Start of Season (SOS): first date smoothed NDVI crosses upward through threshold.
+     */
+    public function detectSOS(array $records, float $threshold = self::NDVI_SOS_EOS_THRESHOLD): ?string
+    {
+        $prev = null;
+        foreach ($records as $rec) {
+            $ndvi = (float) ($rec['ndvi_smoothed'] ?? $rec['ndvi']);
+            if ($prev !== null && $prev < $threshold && $ndvi >= $threshold) {
+                return is_string($rec['date']) ? $rec['date'] : $rec['date']->toDateString();
+            }
+            $prev = $ndvi;
+        }
+        return null;
+    }
+
+    /**
+     * Detect End of Season (EOS): last date smoothed NDVI crosses downward through threshold.
+     */
+    public function detectEOS(array $records, float $threshold = self::NDVI_SOS_EOS_THRESHOLD): ?string
+    {
+        $result = null;
+        $prev   = null;
+        foreach ($records as $rec) {
+            $ndvi = (float) ($rec['ndvi_smoothed'] ?? $rec['ndvi']);
+            if ($prev !== null && $prev >= $threshold && $ndvi < $threshold) {
+                $result = is_string($rec['date']) ? $rec['date'] : $rec['date']->toDateString();
+            }
+            $prev = $ndvi;
+        }
+        return $result;
+    }
+
+    /**
+     * Calculate Growing Degree Days (GDD) = sum of max(0, (Tmax+Tmin)/2 - base_temp).
+     */
+    public function calculateGDD(array $records, float $baseTemp = 10.0): float
+    {
+        $gdd = 0.0;
+        foreach ($records as $rec) {
+            $tMax = (float) ($rec['temperature'] ?? 30);
+            $tMin = (float) ($rec['temperature'] ?? 15) - 8; // Approx min from max
+            $tAvg = ($tMax + $tMin) / 2;
+            $gdd += max(0.0, $tAvg - $baseTemp);
+        }
+        return round($gdd, 1);
+    }
     private function findFirstDateAboveThreshold(array $records, float $threshold): ?string
     {
         foreach ($records as $rec) {
@@ -274,21 +410,41 @@ class NdviProcessingService
     }
 
     /**
-     * Simple empirical yield model: Yield (kg/ha) ≈ NDVI_peak × crop_factor × area_factor
+     * Multi-feature weighted yield prediction model.
+     * Inputs: NDVI_max, avg_rainfall (mm/season), avg_temperature (°C), soil_type.
+     * Formula: yield = (NDVI×0.45 + rain_norm×0.25 + temp_score×0.20 + soil_factor×0.10) × crop_factor
      */
-    private function predictYield(?float $ndviMax, ?string $cropType): float
+    private function predictYield(?float $ndviMax, ?string $cropType, ?float $avgRainfall = null, ?float $avgTemp = null, ?string $soilType = null): float
     {
         $cropFactors = [
-            'wheat'  => 6200,
-            'rice'   => 5800,
-            'maize'  => 7500,
-            'cotton' => 2500,
-            'sugarcane' => 65000,
-            'soybean'   => 3200,
+            'wheat'     => 6200, 'rice'  => 5800, 'maize'  => 7500,
+            'cotton'    => 2500, 'sugarcane' => 65000, 'soybean' => 3200,
             'default'   => 4000,
         ];
         $factor = $cropFactors[strtolower($cropType ?? 'default')] ?? $cropFactors['default'];
-        return round(($ndviMax ?? 0.5) * $factor * (1 + rand(-10, 10) / 100), 2);
+
+        $ndviScore   = $ndviMax ?? 0.50;
+        $rainNorm    = $avgRainfall !== null ? min(1.0, $avgRainfall / 600.0) : 0.5;
+        $optTemp     = self::OPTIMAL_TEMP[strtolower($cropType ?? 'default')] ?? self::OPTIMAL_TEMP['default'];
+        $tempScore   = $avgTemp !== null ? max(0.1, 1.0 - abs($avgTemp - $optTemp) / 20.0) : 0.7;
+        $soilFactor  = self::SOIL_FACTORS[strtolower($soilType ?? '')] ?? 0.85;
+
+        $composite   = ($ndviScore * 0.45) + ($rainNorm * 0.25) + ($tempScore * 0.20) + ($soilFactor * 0.10);
+        $prediction  = $composite * $factor * (1 + rand(-5, 5) / 100);
+
+        return round(max(0, $prediction), 2);
+    }
+
+    /**
+     * Calculate yield confidence interval (±15% band, narrower with more records).
+     */
+    public function calculateConfidenceInterval(float $prediction, int $nRecords = 10): array
+    {
+        $margin = $nRecords >= 30 ? 0.10 : ($nRecords >= 15 ? 0.12 : 0.15);
+        return [
+            'lower' => round($prediction * (1 - $margin), 2),
+            'upper' => round($prediction * (1 + $margin), 2),
+        ];
     }
 
     private function generateIrrigationSuggestions(array $records, ?string $sowingDate): array

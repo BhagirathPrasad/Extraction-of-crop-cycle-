@@ -9,6 +9,7 @@ use App\Models\Report;
 use App\Models\User;
 use Illuminate\Support\Collection;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Schema;
 
 class DashboardController extends Controller
@@ -31,19 +32,24 @@ class DashboardController extends Controller
             ? $user->unreadNotifications()->count()
             : 0;
 
-        $stats = [
-            'total_datasets'     => (clone $datasetQuery)->count(),
-            'processed_datasets' => (clone $datasetQuery)->where('status', 'processed')->count(),
-            'active_analyses'    => $activeAnalyses,
-            'total_crop_cycles'  => (clone $cropCycleQuery)->count(),
-            'total_reports'      => (clone $reportQuery)->count(),
-            'active_users'       => $isAdmin ? User::where('is_active', true)->count() : null,
-            'alerts_count'       => $datasetAlerts + $unreadNotifications,
-            'unread_notifications' => $unreadNotifications,
-            'total_ndvi_records' => $isAdmin
-                ? NdviRecord::count()
-                : NdviRecord::whereIn('crop_cycle_id', (clone $cropCycleQuery)->pluck('_id'))->count(),
-        ];
+        $userId = $user->id;
+        $cacheKey = 'dashboard_stats_' . $userId;
+
+        $stats = Cache::remember($cacheKey, 600, function () use ($user, $isAdmin, $datasetQuery, $cropCycleQuery, $reportQuery, $activeAnalyses, $datasetAlerts, $notificationsEnabled, $unreadNotifications) {
+            return [
+                'total_datasets'     => (clone $datasetQuery)->count(),
+                'processed_datasets' => (clone $datasetQuery)->where('status', 'processed')->count(),
+                'active_analyses'    => $activeAnalyses,
+                'total_crop_cycles'  => (clone $cropCycleQuery)->count(),
+                'total_reports'      => (clone $reportQuery)->count(),
+                'active_users'       => $isAdmin ? User::where('is_active', true)->count() : null,
+                'alerts_count'       => $datasetAlerts + $unreadNotifications,
+                'unread_notifications' => $unreadNotifications,
+                'total_ndvi_records' => $isAdmin
+                    ? NdviRecord::count()
+                    : NdviRecord::whereIn('crop_cycle_id', (clone $cropCycleQuery)->pluck('_id'))->count(),
+            ];
+        });
 
         // ── Recent activity ───────────────────────────────────────────────
         $recentDatasets = (clone $datasetQuery)
@@ -114,34 +120,38 @@ class DashboardController extends Controller
         ));
     }
 
-    /** Build NDVI chart data: average NDVI per month for last 12 months */
+    /** Build NDVI chart data: average NDVI per month for last 12 months (cached 30 min) */
     private function getNdviChartData(User $user, bool $isAdmin): array
     {
-        $query = NdviRecord::query();
+        $cacheKey = 'ndvi_chart_' . $user->id;
 
-        if (!$isAdmin) {
-            $cropCycleIds = CropCycle::where('user_id', $user->id)->pluck('_id');
-            $query->whereIn('crop_cycle_id', $cropCycleIds);
-        }
+        return Cache::remember($cacheKey, 1800, function () use ($user, $isAdmin) {
+            $query = NdviRecord::query();
 
-        $records = $query
-            ->where('observation_date', '>=', now()->subYears(5)->startOfDay())
-            ->get(['observation_date', 'ndvi_value']);
+            if (!$isAdmin) {
+                $cropCycleIds = CropCycle::where('user_id', $user->id)->pluck('_id');
+                $query->whereIn('crop_cycle_id', $cropCycleIds);
+            }
 
-        $rows = $records->groupBy(function($rec) {
-            return substr($rec->observation_date, 0, 7);
-        })->map(function($group, $month) {
-            return (object) [
-                'month' => $month,
-                'avg_ndvi' => $group->avg('ndvi_value'),
-                'count' => $group->count()
+            $records = $query
+                ->where('observation_date', '>=', now()->subYears(5)->startOfDay())
+                ->get(['observation_date', 'ndvi_value']);
+
+            $rows = $records->groupBy(function($rec) {
+                return substr($rec->observation_date, 0, 7);
+            })->map(function($group, $month) {
+                return (object) [
+                    'month'    => $month,
+                    'avg_ndvi' => $group->avg('ndvi_value'),
+                    'count'    => $group->count()
+                ];
+            })->sortBy('month')->values();
+
+            return [
+                'labels' => $rows->pluck('month')->toArray(),
+                'values' => $rows->pluck('avg_ndvi')->map(fn($v) => round((float)$v, 4))->toArray(),
             ];
-        })->sortBy('month')->values();
-
-        return [
-            'labels' => $rows->pluck('month')->toArray(),
-            'values' => $rows->pluck('avg_ndvi')->map(fn($v) => round((float)$v, 4))->toArray(),
-        ];
+        });
     }
 
     private function getGrowthStageData($query): array
